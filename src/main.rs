@@ -61,8 +61,8 @@ fn channel(i: usize) -> usize {
 
 fn main() -> Result<(), image::ImageError> {
     let lowx: F = -2.;
-    let highx: F = 1.;
-    let highy: F = 1.;
+    let highx: F = 1.5;
+    let highy: F = 1.5;
     let lowy: F = -highy;
     let resolution: usize = 300;
     let spanx = highx - lowx;
@@ -71,9 +71,9 @@ fn main() -> Result<(), image::ImageError> {
     let f_pixelsy = (spany * (resolution as F)).floor();
     let u_pixelsx = f_pixelsx as usize;
     let u_pixelsy = f_pixelsy as usize;
-    let n_traces: usize = 10_000_000;
+    let n_traces: usize = 100_000_000;
     let n_threads = 4;
-    let escape_threshold: usize = 1_000;
+    let escape_threshold: usize = 2_000;
     let buddha_trace_length = 1_000;
     println!(
         "Computing for {} <= x < {} and {} <= y < {}",
@@ -98,9 +98,9 @@ fn main() -> Result<(), image::ImageError> {
 
                 if !is_in_mandel(proposal, escape_threshold) {
                     let mut z = C::new(0., 0.);
-                    for i in 1..=buddha_trace_length {
+                    for i in 0..=buddha_trace_length {
                         z = mandelbrot_iter(z, proposal);
-                        if z.norm_sqr() > 4. {
+                        if z.norm_sqr() > 16. {
                             break;
                         }
                         let x = z.re;
@@ -117,8 +117,7 @@ fn main() -> Result<(), image::ImageError> {
                         let ybin = bin(y, lowy, spany, f_pixelsy);
                         let ybin = ybin as usize;
                         canvas[xbin + u_pixelsx * ybin][channel(i)] += 1;
-                        let ybin = bin(-y, lowy, spany, f_pixelsy);
-                        let ybin = ybin as usize;
+                        let ybin = u_pixelsy - ybin - 1;
                         canvas[xbin + u_pixelsx * ybin][channel(i)] += 1;
                     }
                 }
