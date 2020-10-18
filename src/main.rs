@@ -4,7 +4,7 @@ use num_complex::ComplexDistribution;
 use rand::prelude::*;
 use rand_distr::Uniform;
 
-type F = f32;
+type F = f64;
 type C = Complex<F>;
 type ImBuffer = ImageBuffer<Luma<u8>, Vec<u8>>;
 
@@ -90,15 +90,15 @@ fn main() -> Result<(), image::ImageError> {
                 }
                 let x = z.re;
                 let y = z.im;
+                if x < lowx || x >= highx {
+                    continue;
+                }
                 let xbin = bin(x, lowx, spanx, f_pixelsx);
-                if xbin < 0. || xbin >= f_pixelsx {
-                    continue;
-                }
                 let xbin = xbin as usize;
-                let ybin = bin(y, lowy, spany, f_pixelsy);
-                if ybin < 0. || ybin >= f_pixelsy {
+                if y < lowy || y >= highy {
                     continue;
                 }
+                let ybin = bin(y, lowy, spany, f_pixelsy);
                 let ybin = ybin as usize;
 
                 canvas[xbin + u_pixelsx * ybin] += 1;
