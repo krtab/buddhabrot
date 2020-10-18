@@ -1,12 +1,12 @@
+use image::{ImageBuffer, Luma};
 use num_complex::Complex;
 use num_complex::ComplexDistribution;
 use rand::prelude::*;
 use rand_distr::Uniform;
-use image::{ImageBuffer,Luma};
 
 type F = f32;
 type C = Complex<F>;
-type ImBuffer = ImageBuffer<Luma<u8>,Vec<u8>>;
+type ImBuffer = ImageBuffer<Luma<u8>, Vec<u8>>;
 
 fn bin(x: F, low: F, span: F, bins: F) -> F {
     let frac = (x - low) / span;
@@ -47,16 +47,18 @@ fn is_in_mandel(c: C, escape_threshold: usize) -> bool {
     return true;
 }
 
-fn main() -> Result<(),image::ImageError> {
+fn main() -> Result<(), image::ImageError> {
     let lowx: F = -2.;
-    let highx: F = 0.5;
+    let highx: F = 1.;
     let lowy: F = -1.;
     let highy: F = 1.;
     let resolution: usize = 500;
     let spanx = highx - lowx;
     let spany = highy - lowy;
-    let pixelsx = (spanx * (resolution as F)).floor();
-    let pixelsy = (spany * (resolution as F)).floor();
+    let f_pixelsx = (spanx * (resolution as F)).floor();
+    let f_pixelsy = (spany * (resolution as F)).floor();
+    let u_pixelsx = f_pixelsx as usize;
+    let u_pixelsy = f_pixelsy as usize;
     let n_traces: usize = 10_000_000;
     let escape_threshold: usize = 1_000;
     let buddha_trace_length = 10_000;
@@ -66,7 +68,7 @@ fn main() -> Result<(),image::ImageError> {
     );
     println!(
         "Resolution {} => image pixel size: {} x {}",
-        resolution, pixelsx, pixelsy
+        resolution, u_pixelsx, u_pixelsy
     );
 
     let distrx = Uniform::new(lowx, highx);
@@ -74,13 +76,13 @@ fn main() -> Result<(),image::ImageError> {
     let distcplx = ComplexDistribution::new(&distrx, &distry);
     let mut rng = thread_rng();
     let mut maxlum = 0;
-    let mut canvas : Vec<u32> = vec![0;(pixelsx as usize)*(pixelsy as usize)];
+    let mut canvas: Vec<u32> = vec![0; u_pixelsx * u_pixelsy];
     for _ in 0..n_traces {
         // propose
         let proposal = distcplx.sample(&mut rng);
 
         if !is_in_mandel(proposal, escape_threshold) {
-            let mut z = C::new(0.,0.);
+            let mut z = C::new(0., 0.);
             for _ in 1..=buddha_trace_length {
                 z = mandelbrot_iter(z, proposal);
                 if z.norm_sqr() > 4. {
@@ -88,31 +90,30 @@ fn main() -> Result<(),image::ImageError> {
                 }
                 let x = z.re;
                 let y = z.im;
-                let xbin = bin(x, lowx, spanx, pixelsx);
-                if xbin < 0. || xbin >= pixelsx {
+                let xbin = bin(x, lowx, spanx, f_pixelsx);
+                if xbin < 0. || xbin >= f_pixelsx {
                     continue;
                 }
                 let xbin = xbin as usize;
-                let ybin = bin(y, lowy, spany, pixelsy);
-                if ybin < 0. || ybin >= pixelsy {
+                let ybin = bin(y, lowy, spany, f_pixelsy);
+                if ybin < 0. || ybin >= f_pixelsy {
                     continue;
                 }
                 let ybin = ybin as usize;
 
-                canvas[xbin+(pixelsx as usize)*ybin] += 1;
-                maxlum = std::cmp::max(canvas[xbin+(pixelsx as usize)*ybin],maxlum);
+                canvas[xbin + u_pixelsx * ybin] += 1;
+                maxlum = std::cmp::max(canvas[xbin + u_pixelsx * ybin], maxlum);
             }
         }
     }
-    let mut img = ImBuffer::new(pixelsy as _,pixelsx as _);
-    for (i,l) in canvas.iter().enumerate() {
-        let x = i % (pixelsx as usize);
-        let y = i/(pixelsx as usize);
-        let ratio = (*l as F)/(maxlum as F);
+    let mut img = ImBuffer::new(u_pixelsy as _, u_pixelsx as _);
+    for (i, l) in canvas.iter().enumerate() {
+        let x = i % u_pixelsx;
+        let y = i / u_pixelsx;
+        let ratio = (*l as F) / (maxlum as F);
         let lum = ratio.sqrt() * 255.;
         // dbg!(lum);
         img.put_pixel(y as u32, x as u32, Luma([lum as u8]));
     }
     img.save("output.png")
-
 }
