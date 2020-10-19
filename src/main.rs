@@ -5,6 +5,7 @@ use rand::prelude::*;
 use rand::rngs::SmallRng;
 use rand_distr::Uniform;
 use std::thread;
+use indicatif::{ProgressBar,MultiProgress,ProgressDrawTarget};
 
 type F = f64;
 type C = Complex<F>;
@@ -64,16 +65,16 @@ fn main() -> Result<(), image::ImageError> {
     let highx: F = 1.5;
     let highy: F = 1.5;
     let lowy: F = -highy;
-    let resolution: usize = 300;
+    let resolution: usize = 1000;
     let spanx = highx - lowx;
     let spany = highy - lowy;
     let f_pixelsx = (spanx * (resolution as F)).floor();
     let f_pixelsy = (spany * (resolution as F)).floor();
     let u_pixelsx = f_pixelsx as usize;
     let u_pixelsy = f_pixelsy as usize;
-    let n_traces: usize = 100_000_000;
-    let n_threads = 4;
-    let escape_threshold: usize = 2_000;
+    let n_traces: usize = 1_000_000_000;
+    let n_threads = 7;
+    let escape_threshold: usize = 3_000;
     let buddha_trace_length = 1_000;
     println!(
         "Computing for {} <= x < {} and {} <= y < {}",
@@ -88,14 +89,16 @@ fn main() -> Result<(), image::ImageError> {
     let distry = Uniform::new(lowy, highy);
     let distcplx = ComplexDistribution::new(distrx, distry);
     let mut handles = Vec::new();
+    let mut multibar = MultiProgress::with_draw_target(ProgressDrawTarget::stderr_with_hz(10));
     for _ in 0..n_threads {
+        let pb = (&mut multibar).add(ProgressBar::new(n_traces as _));
+        pb.set_draw_delta((n_traces / 100) as _);
         handles.push(thread::spawn(move || {
             let mut rng = SmallRng::from_entropy();
             let mut canvas: Vec<[u32; 3]> = vec![[0; 3]; u_pixelsx * u_pixelsy];
             for _ in 0..n_traces {
                 // propose
                 let proposal = distcplx.sample(&mut rng);
-
                 if !is_in_mandel(proposal, escape_threshold) {
                     let mut z = C::new(0., 0.);
                     for i in 0..=buddha_trace_length {
@@ -121,10 +124,13 @@ fn main() -> Result<(), image::ImageError> {
                         canvas[xbin + u_pixelsx * ybin][channel(i)] += 1;
                     }
                 }
+                pb.inc(1);
             }
+            pb.finish();
             canvas
         }));
     }
+    multibar.join().unwrap();
     let sub_canvas : thread::Result<Vec<Vec<[u32;3]>>> = handles.into_iter().map(|x| x.join()).collect();
     let sub_canvas = sub_canvas.unwrap();
     let mut canvas = vec![[0; 3]; u_pixelsx * u_pixelsy];
